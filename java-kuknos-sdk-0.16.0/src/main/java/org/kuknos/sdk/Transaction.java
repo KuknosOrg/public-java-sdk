@@ -31,6 +31,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  */
 public class Transaction extends AbstractTransaction {
   private final long mFee;
+  public static final long TIMEOUT_TR = 30;
   private final String mSourceAccount;
   private final long mSequenceNumber;
   private final Operation[] mOperations;

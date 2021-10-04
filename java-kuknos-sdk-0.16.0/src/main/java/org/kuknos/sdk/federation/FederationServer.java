@@ -1,5 +1,7 @@
 package org.kuknos.sdk.federation;
 
+import android.util.Log;
+
 import com.google.gson.reflect.TypeToken;
 import com.moandjiezana.toml.Toml;
 
@@ -74,15 +76,50 @@ public class FederationServer {
    * @throws StellarTomlNotFoundInvalidException Stellar.toml file was not found or was malformed.
    * @return FederationServer
    */
+  //.header("","android_v" + WalletApplication.Companion.getAppVersion())
   public static FederationServer createForDomain(String domain) {
     StringBuilder uriBuilder = new StringBuilder();
     uriBuilder.append(httpsConnection ? "https://" : "http://");
     uriBuilder.append(domain);
-    uriBuilder.append("/.well-known/stellar.toml");
+    uriBuilder.append("/kuknos.toml");
     HttpUrl stellarTomlUri = HttpUrl.parse(uriBuilder.toString());
     OkHttpClient httpClient = FederationServer.createHttpClient();
 
     Request request = new Request.Builder().get().url(stellarTomlUri).build();
+    Response response = null;
+    try {
+      response = httpClient.newCall(request).execute();
+
+      if (response.code() >= 300) {
+        throw new StellarTomlNotFoundInvalidException();
+      }
+
+      Toml stellarToml = new Toml().read(response.body().string());
+
+      String federationServer = stellarToml.getString("FEDERATION_SERVER");
+      if (federationServer == null) {
+        throw new NoFederationServerException();
+      }
+
+      return new FederationServer(federationServer, domain);
+    } catch (IOException e) {
+      throw new ConnectionErrorException();
+    } finally {
+      if (response != null) {
+        response.close();
+      }
+    }
+  }
+
+  public static FederationServer createForDomain(String domain,String version) {
+    StringBuilder uriBuilder = new StringBuilder();
+    uriBuilder.append(httpsConnection ? "https://" : "http://");
+    uriBuilder.append(domain);
+    uriBuilder.append("/kuknos.toml");
+    HttpUrl stellarTomlUri = HttpUrl.parse(uriBuilder.toString());
+    OkHttpClient httpClient = FederationServer.createHttpClient();
+
+    Request request = new Request.Builder().get().header("platform-version",version).url(stellarTomlUri).build();
     Response response = null;
     try {
       response = httpClient.newCall(request).execute();
@@ -135,6 +172,40 @@ public class FederationServer {
     Response response = null;
     try {
       response = this.httpClient.newCall(request).execute();
+
+      if (response.code() == 404) {
+        throw new NotFoundException();
+      }
+
+      return responseHandler.handleResponse(response);
+    } catch (IOException e) {
+      throw new ConnectionErrorException();
+    } finally {
+      if (response != null) {
+        response.close();
+      }
+    }
+  }
+
+  public FederationResponse resolveAddress(String address,String version) {
+    String[] tokens = address.split("\\*");
+    if (tokens.length != 2) {
+      throw new MalformedAddressException();
+    }
+
+    HttpUrl.Builder uriBuilder = this.serverUri.newBuilder();
+    uriBuilder.setQueryParameter("type", "name");
+    uriBuilder.setQueryParameter("q", address);
+    HttpUrl uri = uriBuilder.build();
+
+    TypeToken type = new TypeToken<FederationResponse>() {};
+    ResponseHandler<FederationResponse> responseHandler = new ResponseHandler<FederationResponse>(type);
+
+    Request request = new Request.Builder().get().header("platform-version",version).url(uri).build();
+    Response response = null;
+    try {
+      response = this.httpClient.newCall(request).execute();
+
       if (response.code() == 404) {
         throw new NotFoundException();
       }

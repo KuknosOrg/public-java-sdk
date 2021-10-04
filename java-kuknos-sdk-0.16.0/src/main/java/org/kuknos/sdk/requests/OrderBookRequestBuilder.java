@@ -42,51 +42,24 @@ public class OrderBookRequestBuilder extends RequestBuilder {
     return this;
   }
 
-  public static OrderBookResponse execute(OkHttpClient httpClient, HttpUrl uri) throws IOException, TooManyRequestsException {
-    TypeToken type = new TypeToken<OrderBookResponse>() {};
-    ResponseHandler<OrderBookResponse> responseHandler = new ResponseHandler<OrderBookResponse>(type);
-
-    Request request = new Request.Builder().get().url(uri).build();
-    Response response = httpClient.newCall(request).execute();
-
-    return responseHandler.handleResponse(response);
-  }
-
-  public static OrderBookResponse executeKuknos(OkHttpClient httpClient, HttpUrl uri, String header) throws IOException, TooManyRequestsException {
-
-    String token = "";
-    String platformVersion = "";
+  public static OrderBookResponse execute(OkHttpClient httpClient, HttpUrl uri, String authorization,String platformVersion,String acceptLanguage)  {
     try {
-      JSONObject headerr = new JSONObject(header);
-      token = headerr.getString("Authorization");
-      platformVersion = headerr.getString("platform-version");
-    } catch (JSONException e) {
-    }
+      TypeToken type = new TypeToken<OrderBookResponse>() {};
+      ResponseHandler<OrderBookResponse> responseHandler = new ResponseHandler<OrderBookResponse>(type);
 
+      Request request = new Request.Builder().get().url(uri).
+              header("Content-Type","application/json").
+              header("platformVersion",platformVersion).
+              header("Accept-Language",acceptLanguage).
+              header("Authorization",authorization).build();
+      Response response = httpClient.newCall(request).execute();
 
-    TypeToken type = new TypeToken<OrderBookResponse>() {};
-    ResponseHandler<OrderBookResponse> responseHandler = new ResponseHandler<OrderBookResponse>(type);
-
-    Request request = new Request.Builder().get().url(uri)
-            .header("Authorization",token)
-            .header("platform-version",platformVersion)
-            .header("Content-Type","application/json").build();
-
-    Response response = httpClient.newCall(request).execute();
-
-
-    //Log.i("jj","order book status : "+ response.code());"bids":[{"price_r":{"n":1,"d":5},"price":"0.2000000","amount":"1.0000000"},{"price_r":{"n":1,"d":10},"price":"0.1000000","amount":"0.2000000"}]
-    //Log.i("jj","order book status : "+response.body().string());
-
-    if (response != null){
-      //Log.i("jj","order book status : "+response.code());
       return responseHandler.handleResponse(response);
-    }else {
+    }catch (Exception e){
       return null;
     }
 
   }
-
 
   /**
    * Allows to stream SSE events from horizon.
@@ -102,8 +75,8 @@ public class OrderBookRequestBuilder extends RequestBuilder {
     return SSEStream.create(httpClient,this,OrderBookResponse.class,listener);
   }
 
-  public OrderBookResponse execute() throws IOException, TooManyRequestsException {
-    return this.execute(this.httpClient, this.buildUri());
+  public OrderBookResponse execute(String authorization,String platformVersion,String acceptLanguage) throws IOException, TooManyRequestsException {
+    return this.execute(this.httpClient, this.buildUri(),authorization,platformVersion,acceptLanguage);
   }
 
   @Override

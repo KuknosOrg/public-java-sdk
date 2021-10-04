@@ -104,14 +104,25 @@ public class OffersRequestBuilder extends RequestBuilder {
    * @throws TooManyRequestsException when too many requests were sent to the Horizon server.
    * @throws IOException
    */
-  public static Page<OfferResponse> execute(OkHttpClient httpClient, HttpUrl uri) throws IOException, TooManyRequestsException {
+  public static Page<OfferResponse> execute(OkHttpClient httpClient, HttpUrl uri,String authorization,String platformVersion,String acceptLanguage) throws IOException {
     TypeToken type = new TypeToken<Page<OfferResponse>>() {};
     ResponseHandler<Page<OfferResponse>> responseHandler = new ResponseHandler<Page<OfferResponse>>(type);
 
-    Request request = new Request.Builder().get().url(uri).build();
-    Response response = httpClient.newCall(request).execute();
 
-    return responseHandler.handleResponse(response);
+    Request request = new Request.Builder().get().url(uri).
+            header("Content-Type","application/json").
+            header("platformVersion",platformVersion).
+            header("Accept-Language",acceptLanguage).
+            header("Authorization",authorization).build();
+    try {
+      Response response = httpClient.newCall(request).execute();
+      return responseHandler.handleResponse(response);
+    }catch (Exception e){
+      return responseHandler.handleResponse("khata");
+    }
+
+
+
   }
 
   /**
@@ -135,8 +146,12 @@ public class OffersRequestBuilder extends RequestBuilder {
    * @throws TooManyRequestsException when too many requests were sent to the Horizon server.
    * @throws IOException
    */
-  public Page<OfferResponse> execute() throws IOException, TooManyRequestsException {
-    return this.execute(this.httpClient, this.buildUri());
+  public Page<OfferResponse> execute(String authorization,String platformVersion,String acceptLanguage) throws IOException, TooManyRequestsException {
+    return this.execute(this.httpClient, this.buildUri(),authorization,platformVersion,acceptLanguage);
+  }
+
+  public Page<OfferResponse> execute(String authorization,String platformVersion, HttpUrl url,String acceptLanguage) throws IOException, TooManyRequestsException {
+    return this.execute(this.httpClient, url,authorization,platformVersion,acceptLanguage);
   }
 
   @Override

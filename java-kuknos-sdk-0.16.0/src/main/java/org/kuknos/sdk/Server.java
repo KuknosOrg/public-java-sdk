@@ -1,10 +1,15 @@
 package org.kuknos.sdk;
 
+import android.util.Log;
+
 import com.google.common.base.Optional;
 import com.google.gson.reflect.TypeToken;
 import okhttp3.*;
 import okhttp3.Response;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 import org.kuknos.sdk.requests.AccountsRequestBuilder;
 import org.kuknos.sdk.requests.AssetsRequestBuilder;
 import org.kuknos.sdk.requests.ClientIdentificationInterceptor;
@@ -32,10 +37,12 @@ import org.kuknos.sdk.responses.SubmitTransactionUnknownResponseException;
 import org.kuknos.sdk.xdr.CryptoKeyType;
 import org.kuknos.sdk.requests.*;
 import org.kuknos.sdk.responses.*;
+import org.kuknos.sdk.xdr.PublicKey;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -50,6 +57,7 @@ public class Server implements Closeable {
     private OkHttpClient httpClient;
     private Optional<Network> network;
     private ReentrantReadWriteLock networkLock;
+    private String acceptLanguage = "";
     /**
      * submitHttpClient is used only for submitting transactions. The read timeout is longer.
      */
@@ -72,7 +80,7 @@ public class Server implements Closeable {
      */
     private static final String ACCOUNT_REQUIRES_MEMO_KEY = "config.memo_required";
 
-    public Server(String uri) {
+    public Server(String uri,String acceptLanguage) {
         this(
             uri,
             new OkHttpClient.Builder()
@@ -86,7 +94,8 @@ public class Server implements Closeable {
                 .connectTimeout(10, TimeUnit.SECONDS)
                 .readTimeout(HORIZON_SUBMIT_TIMEOUT + 5, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
-                .build()
+                .build(),
+                acceptLanguage
         );
 
     }
@@ -94,13 +103,15 @@ public class Server implements Closeable {
     public Server(
             String serverURI,
             OkHttpClient httpClient,
-            OkHttpClient submitHttpClient
+            OkHttpClient submitHttpClient,
+            String acceptLanguage
     ) {
         this.serverURI = HttpUrl.parse(serverURI);
         this.httpClient = httpClient;
         this.submitHttpClient = submitHttpClient;
         this.network = Optional.absent();
         this.networkLock = new ReentrantReadWriteLock();
+        this.acceptLanguage = acceptLanguage;
     }
 
 
@@ -447,4 +458,146 @@ public class Server implements Closeable {
         this.httpClient.connectionPool().evictAll();
         this.submitHttpClient.connectionPool().evictAll();
     }
+
+    public int statusChecker = 200;
+    public String errorBody = "empty";
+    public String hash = "";
+    public SubmitTransactionResponse.Extras.ResultCodes resultCodes;
+    public SubmitTransactionResponse submitTransactionKuknos(JSONObject body,String authorization,String platformVersion,boolean isLive,String publicKey) throws IOException, JSONException {
+        HttpUrl transactionsURI = serverURI.newBuilder().addPathSegment("transactions").build();
+        Log.i("agree",transactionsURI.toString());
+
+        RequestBody requestBody = null;
+        if (isLive) {
+            MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+            requestBody = RequestBody.create(JSON, body.toString());
+        }else {
+            requestBody = new FormBody.Builder().add("tx", body.getString("tx")).build();
+        }
+
+        Request submitTransactionRequest = new Request.Builder().url(transactionsURI).post(requestBody)
+                .header("Content-Type","application/json")
+                .header("Authorization",authorization)
+                .header("platform-version",platformVersion)
+                .header("Accept-Language",acceptLanguage)
+                .header("Public", publicKey)
+                .build();
+        Response response = null;
+        SubmitTransactionResponse submitTransactionResponse = null;
+        try {
+            response = this.submitHttpClient.newCall(submitTransactionRequest).execute();
+            String bodyString = response.body().string();
+            Log.i("agree","status transaction "+response.code());
+            Log.i("agree","result transaction "+bodyString);
+            if (response.code() == 200){
+                try {
+                    submitTransactionResponse = GsonSingleton.getInstance().fromJson(bodyString, SubmitTransactionResponse.class);
+                }catch (Exception e){ }
+
+                try {
+                    JSONObject result = new JSONObject(bodyString);
+                    hash = result.getString("hash");
+                }catch (Exception e){
+                }
+            }else {
+                try {
+                    JSONObject responsBody = new JSONObject(bodyString);
+                    statusChecker = response.code();
+                    errorBody = responsBody.getString("detail");
+                    Log.i("agree","error : "+errorBody);
+                    JSONArray jsonArray = responsBody.getJSONObject("extras").getJSONObject("result_codes").getJSONArray("operations");
+                    resultCodes = new SubmitTransactionResponse.Extras.ResultCodes(
+                            responsBody.getJSONObject("extras").getJSONObject("result_codes").getString("transaction"),
+                            jArrayToList(jsonArray)
+                    );
+                } catch (JSONException e) {}
+            }
+        } catch (SocketTimeoutException e) {
+            //throw new SubmitTransactionTimeoutResponseException();
+        } finally {
+            if (response != null) {
+                //response.close();
+            }
+        }
+
+        return submitTransactionResponse;
+    }
+
+    public SubmitTransactionResponse submitTransactionKuknos(JSONObject body,String authorization,String platformVersion,boolean isLive,String publicKey,Transaction  transaction, boolean skipMemoRequiredCheck) throws IOException, JSONException, AccountRequiresMemoException {
+
+        if (!skipMemoRequiredCheck) {
+            checkMemoRequired(transaction);
+        }
+
+        HttpUrl transactionsURI = serverURI.newBuilder().addPathSegment("transactions").build();
+        Log.i("agree",transactionsURI.toString());
+
+        RequestBody requestBody = null;
+        if (isLive) {
+            MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+            requestBody = RequestBody.create(JSON, body.toString());
+        }else {
+            requestBody = new FormBody.Builder().add("tx", body.getString("tx")).build();
+        }
+
+        Request submitTransactionRequest = new Request.Builder().url(transactionsURI).post(requestBody)
+                .header("Content-Type","application/json")
+                .header("Authorization",authorization)
+                .header("platform-version",platformVersion)
+                .header("Accept-Language",acceptLanguage)
+                .header("Public", publicKey)
+                .build();
+        Response response = null;
+        SubmitTransactionResponse submitTransactionResponse = null;
+        try {
+            response = this.submitHttpClient.newCall(submitTransactionRequest).execute();
+            String bodyString = response.body().string();
+            Log.i("agree","status transaction "+response.code());
+            Log.i("agree","result transaction "+bodyString);
+            if (response.code() == 200){
+                try {
+                    submitTransactionResponse = GsonSingleton.getInstance().fromJson(bodyString, SubmitTransactionResponse.class);
+                }catch (Exception e){ }
+
+                try {
+                    JSONObject result = new JSONObject(bodyString);
+                    hash = result.getString("hash");
+                }catch (Exception e){
+                }
+            }else {
+                try {
+                    JSONObject responsBody = new JSONObject(bodyString);
+                    statusChecker = response.code();
+                    errorBody = responsBody.getString("detail");
+                    Log.i("agree","error : "+errorBody);
+                    JSONArray jsonArray = responsBody.getJSONObject("extras").getJSONObject("result_codes").getJSONArray("operations");
+                    resultCodes = new SubmitTransactionResponse.Extras.ResultCodes(
+                            responsBody.getJSONObject("extras").getJSONObject("result_codes").getString("transaction"),
+                            jArrayToList(jsonArray)
+                    );
+                } catch (JSONException e) {}
+            }
+        } catch (SocketTimeoutException e) {
+            //throw new SubmitTransactionTimeoutResponseException();
+        } finally {
+            if (response != null) {
+                //response.close();
+            }
+        }
+
+        return submitTransactionResponse;
+    }
+    public ArrayList<String> jArrayToList(JSONArray jsonArray){
+        ArrayList<String> listdata = new ArrayList<String>();
+        try {
+            if (jsonArray != null) {
+                for (int i=0;i<jsonArray.length();i++){
+                    listdata.add(jsonArray.getString(i));
+                }
+            }
+        }catch (Exception e){}
+        return listdata;
+    }
+
+
 }

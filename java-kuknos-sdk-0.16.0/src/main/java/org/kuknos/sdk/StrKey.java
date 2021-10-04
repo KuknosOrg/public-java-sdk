@@ -16,7 +16,7 @@ import org.kuknos.sdk.xdr.*;
 import java.io.*;
 import java.util.Arrays;
 
-class StrKey {
+public class StrKey {
 
     public static final int ACCOUNT_ID_ADDRESS_LENGTH = 56;
     public static final int MUXED_ACCOUNT_ADDRESS_LENGTH = 69;

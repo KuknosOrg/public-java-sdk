@@ -161,6 +161,11 @@ public class KeyPair {
     return StrKey.encodeStellarAccountId(mPublicKey.getAbyte());
   }
 
+  public String getPvId() {
+    return StrKey.encodeStellarSecretSeed(mPrivateKey.getAbyte()).toString();
+  }
+
+
   /**
    * Returns the human readable secret seed encoded in strkey.
    */

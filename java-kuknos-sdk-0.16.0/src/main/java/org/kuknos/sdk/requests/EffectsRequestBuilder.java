@@ -70,18 +70,24 @@ public class EffectsRequestBuilder extends RequestBuilder {
    * @throws TooManyRequestsException when too many requests were sent to the Horizon server.
    * @throws IOException
    */
-  public static Page<EffectResponse> execute(OkHttpClient httpClient, HttpUrl uri,String authorization,String platformVersion) throws IOException, TooManyRequestsException {
+  public static Page<EffectResponse> execute(OkHttpClient httpClient, HttpUrl uri,String authorization,String platformVersion,String acceptLanguage) {
+    try {
     TypeToken type = new TypeToken<Page<EffectResponse>>() {};
     ResponseHandler<Page<EffectResponse>> responseHandler = new ResponseHandler<Page<EffectResponse>>(type);
 
     Request request = new Request.Builder().get().url(uri)
             .header("Content-Type","application/json")
             .header("Authorization",authorization)
+            .header("Accept-Language",acceptLanguage)
             .header("platform-version",platformVersion)
             .build();
     Response response = httpClient.newCall(request).execute();
 
-    return responseHandler.handleResponse(response);
+
+      return responseHandler.handleResponse(response);
+    } catch (IOException e) {
+      return null;
+    }
   }
 
   /**
@@ -104,8 +110,8 @@ public class EffectsRequestBuilder extends RequestBuilder {
    * @throws TooManyRequestsException when too many requests were sent to the Horizon server.
    * @throws IOException
    */
-  public Page<EffectResponse> execute(String authorization,String platformVersion) throws IOException, TooManyRequestsException {
-    return this.execute(this.httpClient, this.buildUri(),authorization,platformVersion);
+  public Page<EffectResponse> execute(String authorization,String platformVersion,String acceptLanguage) {
+    return this.execute(this.httpClient, this.buildUri(),authorization,platformVersion,acceptLanguage);
   }
 
   @Override

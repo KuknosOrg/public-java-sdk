@@ -1,5 +1,7 @@
 package org.kuknos.sdk.requests;
 
+import android.util.Log;
+
 import com.google.gson.reflect.TypeToken;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
@@ -38,20 +40,21 @@ public class AccountsRequestBuilder extends RequestBuilder {
     return responseHandler.handleResponse(response);
   }
 
-  public AccountResponse account(HttpUrl uri , String authorization,String platformVersion) throws IOException {
+  public static int accountStatus = -1;
+  public AccountResponse account(HttpUrl uri , String authorization,String platformVersion,String acceptLanguage) throws IOException {
     TypeToken type = new TypeToken<AccountResponse>() {};
+    Log.i("MyError","url "+uri.toString());
     ResponseHandler<AccountResponse> responseHandler = new ResponseHandler<AccountResponse>(type);
-
     Request request = new Request.Builder().get().url(uri).
             header("Content-Type","application/json").
             header("platformVersion",platformVersion).
+            header("Accept-Language",acceptLanguage).
             header("Authorization",authorization).
             build();
     Response response = httpClient.newCall(request).execute();
-
+    accountStatus = response.code();
     return responseHandler.handleResponse(response);
   }
-
 
   /**
    * Requests <code>GET /accounts/{account}</code>
@@ -64,9 +67,9 @@ public class AccountsRequestBuilder extends RequestBuilder {
     return this.account(this.buildUri());
   }
 
-  public AccountResponse account(String account, String authorization,String platformVersion) throws IOException {
+  public AccountResponse account(String account, String authorization,String platformVersion,String acceptLanguage) throws IOException {
     this.setSegments("accounts", account);
-    return this.account(this.buildUri(),authorization,platformVersion);
+    return this.account(this.buildUri(),authorization,platformVersion,acceptLanguage);
   }
 
   /**
@@ -157,5 +160,11 @@ public class AccountsRequestBuilder extends RequestBuilder {
   public AccountsRequestBuilder order(Order direction) {
     super.order(direction);
     return this;
+  }
+
+  public static int getAccountStatus(){
+    int holder = accountStatus;
+    accountStatus = -1;
+    return holder;
   }
 }

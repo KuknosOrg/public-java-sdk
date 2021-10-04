@@ -25,6 +25,8 @@ public class OfferResponse extends Response implements Pageable {
   private final Asset buying;
   @SerializedName("amount")
   private final String amount;
+  @SerializedName("price_r")
+  private final Price_r price_r;
   @SerializedName("price")
   private final String price;
   @SerializedName("last_modified_ledger")
@@ -34,13 +36,14 @@ public class OfferResponse extends Response implements Pageable {
   @SerializedName("_links")
   private final Links links;
 
-  public OfferResponse(Long id, String pagingToken, String seller, Asset selling, Asset buying, String amount, String price, Integer lastModifiedLedger, String lastModifiedTime, Links links) {
+  public OfferResponse(Long id, String pagingToken, String seller, Asset selling, Asset buying, String amount,Price_r price_r, String price, Integer lastModifiedLedger, String lastModifiedTime, Links links) {
     this.id = id;
     this.pagingToken = pagingToken;
     this.seller = seller;
     this.selling = selling;
     this.buying = buying;
     this.amount = amount;
+    this.price_r = price_r;
     this.price = price;
     this.lastModifiedLedger = lastModifiedLedger;
     this.lastModifiedTime = lastModifiedTime;
@@ -69,6 +72,10 @@ public class OfferResponse extends Response implements Pageable {
 
   public String getAmount() {
     return amount;
+  }
+
+  public Price_r getPrice_r() {
+    return price_r;
   }
 
   public String getPrice() {
@@ -108,6 +115,34 @@ public class OfferResponse extends Response implements Pageable {
 
     public Link getOfferMaker() {
       return offerMaker;
+    }
+  }
+
+  public static class Price_r{
+    @SerializedName("n")
+    private int n;
+    @SerializedName("d")
+    private int d;
+
+    public Price_r(int n, int d) {
+      this.n = n;
+      this.d = d;
+    }
+
+    public int getN() {
+      return n;
+    }
+
+    public void setN(int n) {
+      this.n = n;
+    }
+
+    public int getD() {
+      return d;
+    }
+
+    public void setD(int d) {
+      this.d = d;
     }
   }
 }
